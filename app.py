@@ -19,12 +19,12 @@ if archivo:
         # -----------------------------------
         # CONFIGURACIÓN
         # -----------------------------------
-        fila_po = 1        # fila 2
-        fila_fecha = 4     # fila 5
-        fila_inicio_data = 5  # fila 6
+        fila_po = 1          # fila 2
+        fila_fecha = 4       # fila 5
+        fila_inicio_data = 5 # fila 6
 
         # -----------------------------------
-        # DETECTAR INICIO DE BALANCES (AUTOMÁTICO)
+        # DETECTAR INICIO DE BALANCES (HW)
         # -----------------------------------
         col_inicio_balances = None
 
@@ -40,7 +40,7 @@ if archivo:
         st.success(f"✅ Inicio de balances detectado en columna: {col_inicio_balances}")
 
         # -----------------------------------
-        # DATOS BASE (A-L)
+        # DATOS BASE (COLUMNAS A-L)
         # -----------------------------------
         df_fijo = df_raw.iloc[fila_inicio_data:, :12].copy()
         df_fijo.columns = [f"Col_{i}" for i in range(1, 13)]
@@ -50,14 +50,18 @@ if archivo:
         # -----------------------------------
         df_balances = df_raw.iloc[fila_inicio_data:, col_inicio_balances:].copy()
 
-        # PO y FECHA
-        po_values = df_raw.iloc[fila_po, col_inicio_balances:]
-        fecha_values = df_raw.iloc[fila_fecha, col_inicio_balances:]
+        # ✅ PO COMO TEXTO
+        po_values = df_raw.iloc[fila_po, col_inicio_balances:].astype(str).str.strip()
 
-        # Crear columnas combinadas
+        # ✅ FECHA SIN HORA
+        fecha_values = pd.to_datetime(
+            df_raw.iloc[fila_fecha, col_inicio_balances:], errors="coerce"
+        ).dt.date
+
+        # Crear nombres de columnas combinando PO + fecha
         columnas = []
         for po, fecha in zip(po_values, fecha_values):
-            if pd.isna(po) or str(po).strip() == "":
+            if po.lower() == "nan" or po.strip() == "":
                 columnas.append(None)
             else:
                 columnas.append(f"{po}_{fecha}")
@@ -65,7 +69,7 @@ if archivo:
         df_balances.columns = columnas
 
         # -----------------------------------
-        # UNPIVOT (VERTICAL)
+        # UNPIVOT (FORMATO VERTICAL)
         # -----------------------------------
         df_total = pd.concat(
             [df_fijo.reset_index(drop=True), df_balances.reset_index(drop=True)],
@@ -87,6 +91,10 @@ if archivo:
         # Separar PO y FECHA
         df_melt[["PO", "FECHA"]] = df_melt["PO_FECHA"].str.split("_", expand=True)
 
+        # ✅ FORMATO FINAL
+        df_melt["PO"] = df_melt["PO"].astype(str)
+        df_melt["FECHA"] = pd.to_datetime(df_melt["FECHA"], errors="coerce").dt.date
+
         # -----------------------------------
         # SOLO BALANCES NEGATIVOS ✅
         # -----------------------------------
@@ -99,7 +107,7 @@ if archivo:
         st.subheader("✅ Resultado final (solo negativos)")
         st.dataframe(df_melt, use_container_width=True)
 
-        # Descargar
+        # Descargar CSV
         st.download_button(
             label="📥 Descargar resultado (CSV)",
             data=df_melt.to_csv(index=False),
