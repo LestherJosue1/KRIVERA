@@ -50,21 +50,25 @@ if archivo:
         # -----------------------------------
         df_balances = df_raw.iloc[fila_inicio_data:, col_inicio_balances:].copy()
 
-        # ✅ PO COMO TEXTO
-        po_values = df_raw.iloc[fila_po, col_inicio_balances:].astype(str).str.strip()
+        # ✅ PO COMO TEXTO (seguro contra floats)
+        po_values = df_raw.iloc[fila_po, col_inicio_balances:].apply(lambda x: str(x).strip())
 
         # ✅ FECHA SIN HORA
         fecha_values = pd.to_datetime(
             df_raw.iloc[fila_fecha, col_inicio_balances:], errors="coerce"
         ).dt.date
 
-        # Crear nombres de columnas combinando PO + fecha
+        # -----------------------------------
+        # CREAR COLUMNAS PO_FECHA
+        # -----------------------------------
         columnas = []
         for po, fecha in zip(po_values, fecha_values):
-            if po.lower() == "nan" or po.strip() == "":
+            po_str = str(po).strip()
+
+            if pd.isna(po) or po_str.lower() == "nan" or po_str == "":
                 columnas.append(None)
             else:
-                columnas.append(f"{po}_{fecha}")
+                columnas.append(f"{po_str}_{fecha}")
 
         df_balances.columns = columnas
 
@@ -92,7 +96,7 @@ if archivo:
         df_melt[["PO", "FECHA"]] = df_melt["PO_FECHA"].str.split("_", expand=True)
 
         # ✅ FORMATO FINAL
-        df_melt["PO"] = df_melt["PO"].astype(str)
+        df_melt["PO"] = df_melt["PO"].astype(str).str.strip()
         df_melt["FECHA"] = pd.to_datetime(df_melt["FECHA"], errors="coerce").dt.date
 
         # -----------------------------------
